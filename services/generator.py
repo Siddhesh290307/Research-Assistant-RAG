@@ -1,35 +1,27 @@
-import os
-from dotenv import load_dotenv
-from google import genai
-
-load_dotenv()
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found.")
-
-client = genai.Client(api_key=GEMINI_API_KEY)
+from ollama import chat
+import traceback
 
 def generate_answer(query: str, context: str) -> str:
-    prompt = f"""
-You are an AI research assistant.
+    MAX_CONTEXT_CHARS = 1500
+    safe_context = context[:MAX_CONTEXT_CHARS]
 
-Use ONLY the provided context to answer.
-If the answer is not in the context, say you don't know.
+    messages = [
+        {"role": "system", "content": "You are a helpful AI research assistant."},
+        {
+            "role": "user",
+            "content": (
+                "Answer the question ONLY using the context below. "
+                "If the answer is not present, respond with 'I don't know.'\n\n"
+                f"Context:\n{safe_context}\n\nQuestion:\n{query}\n\nAnswer:"
+            )
+        }
+    ]
 
-Context:
-{context}
-
-Question:
-{query}
-
-Answer:
-"""
-
-    response = client.models.generate_content(
-        model="models/gemini-2.5-flash",
-        contents=prompt,
-    )
-
-    return response.text
+    try:
+        # Correct call without unsupported arguments
+        response = chat(model="llama2:latest", messages=messages)
+        return response.message.content.strip() if response.message else "Generation failed."
+    except Exception:
+        print("LLM GENERATION ERROR:")
+        traceback.print_exc()
+        return "Generation failed."
